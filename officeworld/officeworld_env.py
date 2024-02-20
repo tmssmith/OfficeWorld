@@ -21,16 +21,20 @@ class OfficeWorldEnvironment(BaseEnvironment):
         self.floor_height = len(self.office[0])
         self.floor_width = len(self.office[0][0])
 
-        self.stg = OfficeGenerator().generate_office_graph(self.office, layout=False)
-
         self.actions = [0, 1, 2, 3, 4, 5]  # North, South, East, West, Ascend, Descend
         self.num_actions = len(self.actions)
+        self.stg = OfficeGenerator().generate_office_graph(self.office, layout=False)
         self.state_space = set(self.stg.nodes)
+        self.mask = self.get_state_mask()
         self.num_states = len(self.state_space)
         self.initial_states = self._initialise_initial_states()
         self.terminal_states = self._initialise_terminal_states()
         self.successor_representation = None
         self._cached_sr_gamma = None
+        self.successor_features = None
+        self._cached_sf_gamma = None
+        self.num_features = self.num_floors + 2  # one feature per floor plus x, y
+        self.phi = None  # Feature representation
 
     def _initialise_initial_states(self):
         initial_states = []
@@ -111,12 +115,12 @@ class OfficeWorldEnvironment(BaseEnvironment):
     def get_action_space(self):
         return {0, 1, 2, 3, 4, 5}
 
-    def get_available_actions(self, state=None):
+    def get_available_actions(self, state=None, exploration=False):
         if state is None:
             state = self.current_state
 
         # If the state is terminal, no actions are available.
-        if self.is_state_terminal(state):
+        if not exploration and self.is_state_terminal(state):
             return []
 
         # Otherwise, the available actions depend on whether the state
@@ -195,15 +199,39 @@ class OfficeWorldEnvironment(BaseEnvironment):
 
     def build_transition_matrix(self):
         transition_matrix = np.zeros((len(self.state_space), len(self.state_space)))
-        self.mask = self.get_state_mask()
         for state in self.state_space:
-            for a in self.get_available_actions(state):
+            for a in self.get_available_actions(state, True):
                 self.reset(state)
                 next_state, _, _, _ = self.step(a)
-                s = self.encode(state)
-                next_state = self.encode(next_state)
-                transition_matrix[self.mask.index(s)][self.mask.index(next_state)] += 1.0 / self.num_actions
+                transition_matrix[self.state_to_index(state)][self.state_to_index(next_state)] += 1.0 / self.num_actions
         return transition_matrix
+
+    def get_successor_features(self, gamma, state=None):
+        # If we have already computed (and cached) the SR for the given
+        # gamma value, then we don't need to compute it again.
+        if self.successor_features is None or self._cached_sf_gamma != gamma:
+            phi_matrix = self.get_feature_representation(None)
+            sr = self.get_successor_representation(gamma, None)
+            sf = np.matmul(sr, phi_matrix)
+            self.successor_features = sf
+            self._cached_sf_gamma = gamma
+        if state is None:
+            return self.successor_features
+        else:
+            return self.successor_features[state]
+
+    def get_feature_representation(self, state=None):
+        """Gets feature representation of the environment based on cartesian coordinates (y,x)."""
+        if self.phi is None:
+            self.phi = np.zeros((self.num_states, self.num_features))
+            for s, _ in enumerate(self.phi):
+                floor, x, y = self.index_to_state(s)
+                floor_encoding = [floor == i for i in range(self.num_floors)]
+                self.phi[s] = *floor_encoding, x / self.floor_width, y / self.floor_height
+        if state is None:
+            return self.phi
+        else:
+            return self.phi[state]
 
     def state_to_index(self, state):
         encoding = self.encode(state)
@@ -218,8 +246,8 @@ class OfficeWorldEnvironment(BaseEnvironment):
         return sorted(atomic_states)
 
     def encode(self, state):
-        floor, x, y = state
         # num_floors, width, height
+        floor, x, y = state
         i = floor
         i *= self.floor_width
         i += x
@@ -228,13 +256,14 @@ class OfficeWorldEnvironment(BaseEnvironment):
         return i
 
     def decode(self, i):
+        # Returns (floor, x, y)
         out = []
         out.append(i % self.floor_height)
         i = i // self.floor_height
         out.append(i % self.floor_width)
         i = i // self.floor_width
         out.append(i)
-        return reversed(out)
+        return tuple(reversed(out))
 
     def generate_interaction_graph(self, directed=True):
         if directed:
