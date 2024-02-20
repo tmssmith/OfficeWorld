@@ -396,6 +396,12 @@ class OfficeGenerator(object):
         return None, office[y][x]
 
     def generate_office_graph(self, office=None, layout=True):
+        def add_transition(u, v):
+            if stg.has_edge(u, v):
+                stg[u][v]["weight"] += 1.0
+            else:
+                stg.add_edge(u, v, weight=1.0)
+
         if office is None:
             office = self.office
 
@@ -410,7 +416,7 @@ class OfficeGenerator(object):
         for floor in range(num_floors):
             for y in range(floor_height):
                 for x in range(floor_width):
-                    if office[floor][y][x] in valid_state_types - {CellType.GOAL}:
+                    if office[floor][y][x] in valid_state_types:
                         state = (floor, x, y)
 
                         # Add node if it doesn't exist.
@@ -419,30 +425,34 @@ class OfficeGenerator(object):
 
                         # Add edges between this node and its neighbours.
                         if office[floor][y + 1][x] in valid_state_types:
-                            stg.add_edge(state, (floor, x, y + 1))
+                            add_transition(state, (floor, x, y + 1))
                         if office[floor][y - 1][x] in valid_state_types:
-                            stg.add_edge(state, (floor, x, y - 1))
+                            add_transition(state, (floor, x, y - 1))
                         if office[floor][y][x + 1] in valid_state_types:
-                            stg.add_edge(state, (floor, x + 1, y))
+                            add_transition(state, (floor, x + 1, y))
                         if office[floor][y][x - 1] in valid_state_types:
-                            stg.add_edge(state, (floor, x - 1, y))
+                            add_transition(state, (floor, x - 1, y))
 
                         # Add edges between elevators on different floors.
                         if office[floor][y][x] == CellType.ELEVATOR:
                             if floor < num_floors - 1:  # Up elevator.
-                                stg.add_edge(state, (floor + 1, x, y))
+                                add_transition(state, (floor + 1, x, y))
                             if floor > 0:  # Down elevator.
-                                stg.add_edge(state, (floor - 1, x, y))
+                                add_transition(state, (floor - 1, x, y))
+                        else:
+                            # Adds self-loops
+                            add_transition(state, state)  # UP action
+                            add_transition(state, state)  # DOWN action
 
                         # Add self-loops to states next to walls.
                         if office[floor][y + 1][x] == CellType.WALL:
-                            stg.add_edge(state, state)
+                            add_transition(state, state)
                         if office[floor][y - 1][x] == CellType.WALL:
-                            stg.add_edge(state, state)
+                            add_transition(state, state)
                         if office[floor][y][x + 1] == CellType.WALL:
-                            stg.add_edge(state, state)
+                            add_transition(state, state)
                         if office[floor][y][x - 1] == CellType.WALL:
-                            stg.add_edge(state, state)
+                            add_transition(state, state)
 
         if layout:
             office_layout(stg, floor_height, floor_width)
