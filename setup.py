@@ -15,9 +15,9 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=("example", "test")),
     data_files=[
         (
-            "layouts",
+            "layout_files",
             [
-                "office_2_floors.json",
+                "officeworld/layouts/office_2_floors.json",
             ],
         )
     ],
