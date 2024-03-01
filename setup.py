@@ -17,7 +17,7 @@ setuptools.setup(
     package_data={
         "",
         [
-            "office_2_floors.json",
+            "./officeworld/layouts/office_2_floors.json",
         ],
     },
     include_package_data=True,
