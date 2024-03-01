@@ -13,9 +13,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Ueva/OffcieWorld",
     packages=setuptools.find_packages(exclude=("example", "test")),
-    package_dir={"": "officeworld"},
+    # package_dir={"": "officeworld"},
     package_data={
-        "layouts",
+        "",
         [
             "office_2_floors.json",
         ],
