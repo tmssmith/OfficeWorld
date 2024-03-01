@@ -13,13 +13,20 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Ueva/OffcieWorld",
     packages=setuptools.find_packages(exclude=("example", "test")),
-    # package_dir={"": "officeworld"},
-    package_data={
-        "",
-        [
-            "./officeworld/layouts/office_2_floors.json",
-        ],
-    },
+    data_files=[
+        (
+            "layouts",
+            [
+                "office_2_floors.json",
+            ],
+        )
+    ],
+    # package_data={
+    #     "",
+    #     [
+    #         "./officeworld/layouts/office_2_floors.json",
+    #     ],
+    # },
     include_package_data=True,
     install_requires=["numpy", "pygame", "networkx", "simpleoptions"],
     classifiers=[
