@@ -21,6 +21,7 @@ setuptools.setup(
             ],
         )
     ],
+    include_package_data=True,
     install_requires=["numpy", "pygame", "networkx", "simpleoptions"],
     classifiers=[
         "Programming Language :: Python :: 3",
