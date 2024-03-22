@@ -60,7 +60,7 @@ class OfficeWorldEnvironment(BaseEnvironment):
 
     def build_transition_dict(self):
         self.P = defaultdict(lambda: defaultdict(lambda: list()))
-        for floor in self.num_floors:
+        for floor in range(self.num_floors):
             for x in range(self.floor_width):
                 for y in range(self.floor_height):
                     if self.office[floor][y][x] != CellType.WALL:
