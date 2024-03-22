@@ -1,4 +1,5 @@
 import random
+from collections import defaultdict
 
 import networkx as nx
 import numpy as np
@@ -35,6 +36,7 @@ class OfficeWorldEnvironment(BaseEnvironment):
         self._cached_sf_gamma = None
         self.num_features = self.num_floors + 2  # one feature per floor plus x, y
         self.phi = None  # Feature representation
+        self.build_transition_dict()
 
     def _initialise_initial_states(self):
         initial_states = []
@@ -56,6 +58,51 @@ class OfficeWorldEnvironment(BaseEnvironment):
 
         return terminal_states
 
+    def build_transition_dict(self):
+        self.P = defaultdict(lambda: defaultdict(lambda: list()))
+        for floor in self.num_floors:
+            for x in range(self.floor_width):
+                for y in range(self.floor_height):
+                    if self.office[floor][y][x] != CellType.WALL:
+                        state = (floor, x, y)
+                        for action in range(self.num_actions):
+                            next_floor, next_x, next_y = floor, x, y
+                            reward = -0.0001
+                            terminal = False
+                            if action == 0:
+                                next_y += 1
+                            elif action == 1:
+                                next_y -= 1
+                            elif action == 2:
+                                next_x += 1
+                            elif action == 3:
+                                next_x -= 1
+                            elif (
+                                action == 4
+                                and floor < len(self.num_floors) - 1
+                                and self.office[floor][y][x] == CellType.ELEVATOR
+                            ):
+                                next_floor += 1
+                            elif (
+                                action == 5
+                                and floor > 0
+                                and self.office[floor][y][x] == CellType.ELEVATOR
+                            ):
+                                next_floor -= 1
+
+                            if self.office[next_floor][next_y][next_x] == CellType.WALL:
+                                next_state = state
+                            else:
+                                next_state = (next_floor, next_x, next_y)
+
+                            if self.is_state_terminal(next_state):
+                                reward += 1.0
+                                terminal = True
+
+                            self.P[state][action].append(
+                                (1.0, next_state, reward, terminal)
+                            )
+
     def reset(self, state=None):
         if state is not None:
             current_state = state
@@ -67,41 +114,13 @@ class OfficeWorldEnvironment(BaseEnvironment):
         return current_state
 
     def step(self, action):
-        floor, x, y = self.current_state
+        if state is None:
+            state = self.current_state
+        transitions = self.P[state][action]
+        _, next_state, reward, terminal = transitions[0]
+        self.current_state = next_state
 
-        # Go North.
-        if action == 0:
-            y += 1
-        # Go South.
-        elif action == 1:
-            y -= 1
-        # Go East:
-        elif action == 2:
-            x += 1
-        # Go West.
-        elif action == 3:
-            x -= 1
-        # Go Up.
-        elif action == 4:
-            floor += 1
-        # Go Down.
-        elif action == 5:
-            floor -= 1
-
-        # Keep the agent in the same state if they have moved into a wall.
-        if self.office[floor][y][x] == CellType.WALL:
-            floor, x, y = self.current_state
-
-        # Compute reward: -0.0001 per decision stage, +1.0 for reaching the goal.
-        terminal = False
-        reward = -0.0001
-        if self.office[floor][y][x] == CellType.GOAL:
-            terminal = True
-            reward += 1.0
-
-        self.current_state = (floor, x, y)
-
-        return (floor, x, y), reward, terminal, {}
+        return next_state, reward, terminal, {}
 
     def render(self, mode="human"):
         pass
@@ -187,7 +206,9 @@ class OfficeWorldEnvironment(BaseEnvironment):
             # First, we build up the transition matrix (assuming a random policy).
             transition_matrix = self.build_transition_matrix()
             # Then, we use the Von Neumann expansion to compute the Successor Representation.
-            sr = np.linalg.inv(np.identity(len(transition_matrix)) - gamma * transition_matrix)
+            sr = np.linalg.inv(
+                np.identity(len(transition_matrix)) - gamma * transition_matrix
+            )
 
             self.successor_representation = sr
             self._cached_sr_gamma = gamma
@@ -203,7 +224,9 @@ class OfficeWorldEnvironment(BaseEnvironment):
             for a in self.get_available_actions(state, True):
                 self.reset(state)
                 next_state, _, _, _ = self.step(a)
-                transition_matrix[self.state_to_index(state)][self.state_to_index(next_state)] += 1.0 / self.num_actions
+                transition_matrix[self.state_to_index(state)][
+                    self.state_to_index(next_state)
+                ] += (1.0 / self.num_actions)
         return transition_matrix
 
     def get_successor_features(self, gamma, state=None):
@@ -227,7 +250,11 @@ class OfficeWorldEnvironment(BaseEnvironment):
             for s, _ in enumerate(self.phi):
                 floor, x, y = self.index_to_state(s)
                 floor_encoding = [floor == i for i in range(self.num_floors)]
-                self.phi[s] = *floor_encoding, x / self.floor_width, y / self.floor_height
+                self.phi[s] = (
+                    *floor_encoding,
+                    x / self.floor_width,
+                    y / self.floor_height,
+                )
         if state is None:
             return self.phi
         else:
