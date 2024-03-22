@@ -79,7 +79,7 @@ class OfficeWorldEnvironment(BaseEnvironment):
                                 next_x -= 1
                             elif (
                                 action == 4
-                                and floor < len(self.num_floors) - 1
+                                and floor < self.num_floors - 1
                                 and self.office[floor][y][x] == CellType.ELEVATOR
                             ):
                                 next_floor += 1
