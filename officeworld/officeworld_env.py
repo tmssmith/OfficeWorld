@@ -9,7 +9,7 @@ from officeworld.generator import OfficeGenerator, CellType
 
 
 class OfficeWorldEnvironment(BaseEnvironment):
-    def __init__(self, office=None, officegen_kwargs=None, rng: RNG | None = None):
+    def __init__(self, office=None, rng: RNG | None = None, officegen_kwargs=None):
         super().__init__()
 
         if office is not None:
