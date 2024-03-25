@@ -114,8 +114,7 @@ class OfficeWorldEnvironment(BaseEnvironment):
         return current_state
 
     def step(self, action):
-        if state is None:
-            state = self.current_state
+        state = self.current_state
         transitions = self.P[state][action]
         _, next_state, reward, terminal = transitions[0]
         self.current_state = next_state
