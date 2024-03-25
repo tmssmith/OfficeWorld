@@ -1,15 +1,15 @@
 import random
+from itertools import product
 from collections import defaultdict
-
-import networkx as nx
 import numpy as np
+from numpy.random import Generator as RNG
 from simpleoptions import BaseEnvironment
 
 from officeworld.generator import OfficeGenerator, CellType
 
 
 class OfficeWorldEnvironment(BaseEnvironment):
-    def __init__(self, office=None, officegen_kwargs=None):
+    def __init__(self, office=None, officegen_kwargs=None, rng: RNG | None = None):
         super().__init__()
 
         if office is not None:
@@ -17,6 +17,8 @@ class OfficeWorldEnvironment(BaseEnvironment):
         else:
             generator = OfficeGenerator(**officegen_kwargs)
             self.office = generator.generate_office_building()
+
+        self.rng = rng if rng else random
 
         self.num_floors = len(self.office)
         self.floor_height = len(self.office[0])
@@ -36,6 +38,7 @@ class OfficeWorldEnvironment(BaseEnvironment):
         self._cached_sf_gamma = None
         self.num_features = self.num_floors + 2  # one feature per floor plus x, y
         self.phi = None  # Feature representation
+        self.P = defaultdict(lambda: defaultdict(list))
         self.build_transition_dict()
 
     def _initialise_initial_states(self):
@@ -59,55 +62,52 @@ class OfficeWorldEnvironment(BaseEnvironment):
         return terminal_states
 
     def build_transition_dict(self):
-        self.P = defaultdict(lambda: defaultdict(lambda: list()))
-        for floor in range(self.num_floors):
-            for x in range(self.floor_width):
-                for y in range(self.floor_height):
-                    if self.office[floor][y][x] != CellType.WALL:
-                        state = (floor, x, y)
-                        for action in range(self.num_actions):
-                            next_floor, next_x, next_y = floor, x, y
-                            reward = -0.0001
-                            terminal = False
-                            if action == 0:
-                                next_y += 1
-                            elif action == 1:
-                                next_y -= 1
-                            elif action == 2:
-                                next_x += 1
-                            elif action == 3:
-                                next_x -= 1
-                            elif (
-                                action == 4
-                                and floor < self.num_floors - 1
-                                and self.office[floor][y][x] == CellType.ELEVATOR
-                            ):
-                                next_floor += 1
-                            elif (
-                                action == 5
-                                and floor > 0
-                                and self.office[floor][y][x] == CellType.ELEVATOR
-                            ):
-                                next_floor -= 1
+        for floor, x, y in product(
+            range(self.num_floors), range(self.floor_width), range(self.floor_height)
+        ):
+            if self.office[floor][y][x] != CellType.WALL:
+                state = (floor, x, y)
+                for action in range(self.num_actions):
+                    next_floor, next_x, next_y = floor, x, y
+                    reward = -0.0001
+                    terminal = False
+                    if action == 0:
+                        next_y += 1
+                    elif action == 1:
+                        next_y -= 1
+                    elif action == 2:
+                        next_x += 1
+                    elif action == 3:
+                        next_x -= 1
+                    elif (
+                        action == 4
+                        and floor < self.num_floors - 1
+                        and self.office[floor][y][x] == CellType.ELEVATOR
+                    ):
+                        next_floor += 1
+                    elif (
+                        action == 5
+                        and floor > 0
+                        and self.office[floor][y][x] == CellType.ELEVATOR
+                    ):
+                        next_floor -= 1
 
-                            if self.office[next_floor][next_y][next_x] == CellType.WALL:
-                                next_state = state
-                            else:
-                                next_state = (next_floor, next_x, next_y)
+                    if self.office[next_floor][next_y][next_x] == CellType.WALL:
+                        next_state = state
+                    else:
+                        next_state = (next_floor, next_x, next_y)
 
-                            if self.is_state_terminal(next_state):
-                                reward += 1.0
-                                terminal = True
+                    if self.is_state_terminal(next_state):
+                        reward += 1.0
+                        terminal = True
 
-                            self.P[state][action].append(
-                                (1.0, next_state, reward, terminal)
-                            )
+                    self.P[state][action].append((1.0, next_state, reward, terminal))
 
     def reset(self, state=None):
         if state is not None:
             current_state = state
         else:
-            current_state = random.choice(self.initial_states)
+            current_state = self.rng.choice(self.initial_states)
 
         self.current_state = current_state
 
