@@ -107,7 +107,7 @@ class OfficeWorldEnvironment(BaseEnvironment):
         if state is not None:
             current_state = state
         else:
-            current_state = self.rng.choice(self.initial_states)
+            current_state = tuple(self.rng.choice(self.initial_states))
 
         self.current_state = current_state
 
