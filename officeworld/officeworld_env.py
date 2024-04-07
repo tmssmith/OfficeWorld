@@ -251,8 +251,10 @@ class OfficeWorldEnvironment(BaseEnvironment):
                 floor_encoding = [floor == i for i in range(self.num_floors)]
                 self.phi[s] = (
                     *floor_encoding,
-                    x / self.floor_width,
-                    y / self.floor_height,
+                    x,
+                    y,
+                    # x / self.floor_width,
+                    # y / self.floor_height,
                 )
         if state is None:
             return self.phi
