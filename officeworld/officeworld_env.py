@@ -219,13 +219,12 @@ class OfficeWorldEnvironment(BaseEnvironment):
 
     def build_transition_matrix(self):
         transition_matrix = np.zeros((len(self.state_space), len(self.state_space)))
-        for state in self.state_space:
-            for a in self.get_available_actions(state, True):
-                self.reset(state)
-                next_state, _, _, _ = self.step(a)
-                transition_matrix[self.state_to_index(state)][
-                    self.state_to_index(next_state)
-                ] += (1.0 / self.num_actions)
+        for state, actions in self.P.items():
+            for transition in actions.values():
+                for p, next_state, _, _ in transition:
+                    transition_matrix[self.state_to_index(state)][
+                        self.state_to_index(next_state)
+                    ] += (p / self.num_actions)
         return transition_matrix
 
     def get_successor_features(self, gamma, state=None):
@@ -251,10 +250,8 @@ class OfficeWorldEnvironment(BaseEnvironment):
                 floor_encoding = [floor == i for i in range(self.num_floors)]
                 self.phi[s] = (
                     *floor_encoding,
-                    x,
-                    y,
-                    # x / self.floor_width,
-                    # y / self.floor_height,
+                    x / self.floor_width,
+                    y / self.floor_height,
                 )
         if state is None:
             return self.phi
